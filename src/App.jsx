@@ -1,28 +1,97 @@
-import { useState } from "react";
-import ctdLogo from "./assets/mono-blue-logo.svg";
+import { useEffect, useState, useRef } from "react";
 import "./App.css";
 import inventoryData from "./assets/inventory.json";
-import Header from "./Header.jsx";
-import InventoryList from "./InventoryList.jsx";
-import ProductCard from "./ProductCard";
+import Header from "./shared/Header.jsx";
+import Footer from "./shared/Footer.jsx";
+import InventoryList from "./features/ProductList/InventoryList.jsx";
+import Cart from "./features/Cart/Cart.jsx";
 
+const baseUrl = import.meta.env.VITE_API_BASE_URL;
 function App() {
-  const [inventory, setInvetory] = useState(inventoryData.inventory);
+  const [inventory, setInvetory] = useState([]);
+  const [cart, setCart] = useState([]);
+  const [isCartOpen, setIsCartOpen] = useState(false);
 
-  const promoteItem = () => {
-    return (
-      <ProductCard
-        name="Limited Edition Tee!"
-        description="Special limited edition neon gree shirt with a metallic Code The Dream Logo shinier than the latest front-end framework! Signed by the legendary Frank!"
-      />
-    );
-  };
+  function handleCloseCart() {
+    if (isCartOpen) {
+      setIsCartOpen(false);
+    }
+  }
+
+  function handleOpenCart() {
+    if (!isCartOpen) {
+      setIsCartOpen(true);
+    }
+  }
+
+  //load inventory
+  useEffect(() => {
+    setInvetory([...inventoryData.inventory]);
+  }, []); //<--- don't forget the dependency array or you can end up with an infinite loop!!
+
+  function handleAddItemToCart(id) {
+    const inventoryItem = inventory.find((item) => item.id === id);
+    if (!inventoryItem) {
+      console.error("cart error: item not found");
+      return;
+    }
+    const itemToUpdate = cart.find((item) => item.id === id);
+    let updatedCartItem;
+    if (itemToUpdate) {
+      updatedCartItem = {
+        ...itemToUpdate,
+        itemCount: itemToUpdate.itemCount + 1,
+      };
+    } else {
+      updatedCartItem = { ...inventoryItem, itemCount: 1 };
+    }
+    setCart([...cart.filter((item) => item.id !== id), updatedCartItem]);
+  }
+
+  function addItemCart(item) {
+    setCart([...cart, item]);
+  }
+
+  function removeItemCart(id) {
+    const updatedCart = cart.filter((item) => item.id !== id);
+    setCart([...updatedCart]);
+  }
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const resp = await fetch(`${baseUrl}/products`);
+        if (!resp.ok) {
+          throw new Error(resp.status);
+        }
+        const products = await resp.json();
+        console.log(products);
+        setInventory([...products]);
+      } catch (error) {
+        console.error(error);
+      }
+    })();
+  }, []);
 
   return (
-    <main>
-      <Header />
-      <InventoryList inventory={inventory}>{promoteItem()}</InventoryList>
-    </main>
+    <>
+      <Header cart={cart} handleOpenCart={handleOpenCart} />
+      <main>
+        <InventoryList
+          inventory={inventory}
+          handleAddItemToCart={handleAddItemToCart}
+        ></InventoryList>
+        {/*`isCartOpen has to be true for the cart to be rendered*/}
+        {isCartOpen && (
+          <Cart
+            cart={cart}
+            setCart={setCart}
+            handleCloseCart={handleCloseCart}
+          />
+        )}
+      </main>
+      <Footer />
+    </>
   );
 }
 
